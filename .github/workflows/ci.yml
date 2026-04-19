@@ -14,9 +14,12 @@ jobs:
         dir: [aws/terraform, gcp/terraform]
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
+      - name: Setup Terraform
+        run: |
+          wget -q https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip -O /tmp/terraform.zip
+          unzip -o /tmp/terraform.zip terraform
+          mv terraform /usr/local/bin/
+          terraform version
       - name: Terraform Init
         run: terraform init -backend=false
         working-directory: ${{ matrix.dir }}
@@ -32,4 +35,4 @@ jobs:
         run: |
           find kubernetes -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read f; do
             python3 -c "import yaml; yaml.safe_load(open('$f'))" || echo "INVALID: $f"
-          done || true
+          done || echo "yaml check done"
