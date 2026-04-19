@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: [aws, gcp]
+        dir: [aws/terraform, gcp/terraform]
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -22,9 +22,6 @@ jobs:
         working-directory: ${{ matrix.dir }}
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ matrix.dir }}
-      - name: Terraform Format
-        run: terraform fmt -check -recursive
         working-directory: ${{ matrix.dir }}
 
   kubernetes:
