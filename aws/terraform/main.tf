@@ -19,25 +19,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "production"
-}
-
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-data "aws_caller_identity" "current" {}
 data "aws_availability_zones" "available" {}
 
 # VPC
@@ -67,7 +48,7 @@ resource "aws_subnet" "public" {
   count                   = 3
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone        = data.aws_availability_zones.available.names[count.index]
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -89,10 +70,12 @@ resource "aws_subnet" "private" {
   }
 }
 
-# Elastic IP for NAT Gateway
+# Elastic IPs for NAT Gateways
 resource "aws_eip" "nat" {
   count  = 2
   domain = "vpc"
+
+  depends_on = [aws_internet_gateway.main]
 
   tags = {
     Name = "skydrago-${var.environment}-nat-eip-${count.index + 1}"
@@ -105,6 +88,8 @@ resource "aws_nat_gateway" "main" {
   subnet_id     = aws_subnet.public[count.index].id
   allocation_id = aws_eip.nat[count.index].id
 
+  depends_on = [aws_internet_gateway.main]
+
   tags = {
     Name = "skydrago-${var.environment}-nat-${count.index + 1}"
   }
@@ -116,7 +101,7 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id  = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.main.id
   }
 
   tags = {
@@ -130,7 +115,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id  = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
   }
 
   tags = {
@@ -158,13 +143,15 @@ resource "aws_security_group" "ecs_tasks" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description = "Allow internal VPC traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
   egress {
+    description = "Allow outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -174,21 +161,4 @@ resource "aws_security_group" "ecs_tasks" {
   tags = {
     Name = "skydrago-${var.environment}-ecs-sg"
   }
-}
-
-# Outputs
-output "vpc_id" {
-  value = aws_vpc.main.id
-}
-
-output "public_subnet_ids" {
-  value = aws_subnet.public[*].id
-}
-
-output "private_subnet_ids" {
-  value = aws_subnet.private[*].id
-}
-
-output "ecs_security_group_id" {
-  value = aws_security_group.ecs_tasks.id
 }
