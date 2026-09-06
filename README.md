@@ -1,35 +1,76 @@
 # cloud-infra
 
-> Cloud Infrastructure as Code | AWS | GCP | Azure | Terraform | Pulumi | Kubernetes | SRE best practices
+Infrastructure-as-code and deployment examples covering **AWS, GCP, Terraform, and Kubernetes**.
 
-[![AWS](https://img.shields.io/badge/AWS-FF9900?style=flat-square&logo=amazon-aws)](https://aws.amazon.com/)
-[![GCP](https://img.shields.io/badge/GCP-4285F4?style=flat-square&logo=google-cloud)](https://cloud.google.com/)
-[![Terraform](https://img.shields.io/badge/Terraform-7B36BC?style=flat-square&logo=terraform)](https://www.terraform.io/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes)](https://kubernetes.io/)
+This repository is retained as supporting engineering work for data/API infrastructure. It is not presented as a production trading platform, and the documentation intentionally describes only components that exist in the current tree.
 
-## Providers
+## Implemented
 
-| Cloud | Tools | Modules |
-|-------|-------|---------|
-| AWS | Terraform, Pulumi, CDK | VPC, ECS, RDS, EKS |
-| GCP | Terraform, Pulumi | VPC, GKE, Cloud SQL |
-| Azure | Terraform, Pulumi | VNet, AKS, Azure SQL |
+### AWS
 
-## Infrastructure Layout
+`aws/terraform/` contains Terraform configuration for AWS networking and application-infrastructure primitives, including VPC/subnet/routing and security-related resources.
 
-\`\`\`
+### GCP
+
+`gcp/terraform/` contains Terraform configuration for Google Cloud infrastructure.
+
+### Kubernetes
+
+`kubernetes/prod/` contains production-style Kubernetes manifests for an API workload, including namespace and deployment configuration. Sensitive database configuration is referenced through a Kubernetes Secret rather than committed directly.
+
+### Automation
+
+- `.github/workflows/ci.yml` validates Terraform formatting/configuration and Kubernetes YAML.
+- `scripts/deploy.sh` provides a deployment helper for the repository's infrastructure workflow.
+
+## Repository layout
+
+```text
 cloud-infra/
 ├── aws/
-│   ├── terraform/    # AWS Terraform modules
-│   └── cdk/          # AWS CDK TypeScript
+│   └── terraform/
+│       ├── main.tf
+│       ├── outputs.tf
+│       └── variables.tf
 ├── gcp/
-│   └── terraform/    # GCP Terraform modules
-└── kubernetes/       # K8s configurations
-    ├── dev/
-    ├── staging/
-    └── prod/
-\`\`\`
+│   └── terraform/
+│       └── main.tf
+├── kubernetes/
+│   └── prod/
+│       ├── api-deployment.yaml
+│       └── namespace.yaml
+├── scripts/
+│   └── deploy.sh
+└── .github/workflows/ci.yml
+```
 
-## License
+## Validation
 
-MIT © SKYDRAGO-DEV
+CI performs real failing checks rather than swallowing errors:
+
+```text
+Terraform fmt
+    ↓
+Terraform init -backend=false
+    ↓
+Terraform validate
+    ↓
+Kubernetes YAML parse validation
+```
+
+Cloud credentials are not required for static validation because Terraform initializes with the backend disabled and no apply is performed.
+
+## Security notes
+
+- Do not commit cloud credentials, kubeconfigs, database passwords, API tokens, or Terraform state containing secrets.
+- The AWS backend configuration contains a state-bucket identifier, not credentials. Adapt backend/state configuration before using this repository in another environment.
+- Kubernetes Secret values must be provisioned separately; they are intentionally not stored in the manifests.
+- Review ingress, egress, IAM, network, and secret-management requirements before any real deployment.
+
+## Scope boundaries
+
+The current repository does **not** contain Azure, Pulumi, AWS CDK, or the broader cloud-service inventory previously described in this README. Those claims have been removed to keep public documentation aligned with the implementation.
+
+## Relationship to trading systems
+
+The repository demonstrates infrastructure patterns that can support market-data APIs, research services, internal tooling, or other containerized workloads. It does not claim live broker connectivity, trading execution, or production financial-system deployment.

@@ -2,32 +2,67 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   terraform:
+    name: Terraform ${{ matrix.directory }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Terraform Init (no validate — needs cloud creds)
-        run: |
-          for dir in aws terraform/gcp; do
-            [ -d "$dir" ] || continue
-            if [ -f "$dir/main.tf" ]; then
-              echo "=== $dir detected ==="
-              grep "^terraform\|^provider\|^resource\|^data " "$dir"/*.tf 2>/dev/null | head -5 || echo "empty"
-            fi
-          done
-          echo "CI check complete"
+    strategy:
+      matrix:
+        directory:
+          - aws/terraform
+          - gcp/terraform
 
-  kubernetes:
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate YAML
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Check formatting
+        run: terraform -chdir=${{ matrix.directory }} fmt -check -recursive
+
+      - name: Initialize without backend
+        run: terraform -chdir=${{ matrix.directory }} init -backend=false -input=false
+
+      - name: Validate
+        run: terraform -chdir=${{ matrix.directory }} validate -no-color
+
+  kubernetes-yaml:
+    name: Kubernetes YAML
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML parser
+        run: python -m pip install --disable-pip-version-check PyYAML
+
+      - name: Parse Kubernetes manifests
         run: |
-          find . -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read f; do
-            python3 -c "import yaml; yaml.safe_load(open('$f'))" || echo "INVALID: $f"
-          done || echo "yaml check done"
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          files = sorted(Path("kubernetes").rglob("*.yaml")) + sorted(Path("kubernetes").rglob("*.yml"))
+          if not files:
+              raise SystemExit("No Kubernetes YAML files found")
+
+          for path in files:
+              with path.open("r", encoding="utf-8") as handle:
+                  list(yaml.safe_load_all(handle))
+              print(f"validated {path}")
+          PY
