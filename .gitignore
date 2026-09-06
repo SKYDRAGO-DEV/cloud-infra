@@ -1,0 +1,37 @@
+# Terraform working data and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Terraform variable files can contain credentials or environment-specific values
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+
+# Local Terraform CLI configuration
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Credentials / keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local/editor artifacts
+.DS_Store
+.idea/
+.vscode/
