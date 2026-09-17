@@ -42,7 +42,7 @@ resource "google_compute_network" "main" {
   auto_create_subnetworks = false
 }
 
-# Subnet
+# Subnet with explicit secondary ranges for VPC-native GKE.
 resource "google_compute_subnetwork" "main" {
   name          = "skydrago-${var.environment}-subnet"
   network       = google_compute_network.main.id
@@ -51,11 +51,37 @@ resource "google_compute_subnetwork" "main" {
 
   private_ip_google_access = true
 
+  secondary_ip_range {
+    range_name    = "pods"
+    ip_cidr_range = "10.1.0.0/16"
+  }
+
+  secondary_ip_range {
+    range_name    = "services"
+    ip_cidr_range = "10.2.0.0/20"
+  }
+
   log_config {
     aggregation_interval = "INTERVAL_10_MIN"
     flow_sampling        = 0.5
     metadata             = "INCLUDE_ALL_METADATA"
   }
+}
+
+# Reserve an internal range and establish Private Service Access so Cloud SQL
+# can use a private address on this VPC.
+resource "google_compute_global_address" "private_services" {
+  name          = "skydrago-${var.environment}-private-services"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.main.id
+}
+
+resource "google_service_networking_connection" "private_services" {
+  network                 = google_compute_network.main.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_services.name]
 }
 
 # Cloud SQL Instance
@@ -80,6 +106,8 @@ resource "google_sql_database_instance" "main" {
       point_in_time_recovery_enabled = true
     }
   }
+
+  depends_on = [google_service_networking_connection.private_services]
 }
 
 # Cloud SQL Database
