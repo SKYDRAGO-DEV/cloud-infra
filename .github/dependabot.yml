@@ -1,0 +1,18 @@
+# Propose updates without automatically applying or deploying infrastructure.
+version: 2
+updates:
+  - package-ecosystem: terraform
+    directory: /aws/terraform
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: terraform
+    directory: /gcp/terraform
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
